@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'cache_entry_metadata'
+require_relative "cache_entry_metadata"
 
 module Grape
   module Cache
@@ -12,6 +12,7 @@ module Grape
         def store(key, response, metadata)
           storage[key] = [response, metadata]
         end
+
         # @param key[String] Cache key
         def fetch(key)
           response, metadata = storage[key]
@@ -37,6 +38,7 @@ module Grape
         end
 
         private
+
         def storage
           @storage ||= {}
         end
