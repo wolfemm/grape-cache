@@ -39,19 +39,19 @@ module Grape
           end
       end
 
-      def public(options = {})
+      def cacheability_public(options = {})
         cache_control(Grape::Cache::PUBLIC, options)
       end
 
-      def private(options = {})
+      def cacheability_private(options = {})
         cache_control(Grape::Cache::PRIVATE, options)
       end
 
-      def no_cache(options = {})
+      def cacheability_no_cache(options = {})
         cache_control(Grape::Cache::NO_CACHE, options)
       end
 
-      def only_if_cached(options = {})
+      def cacheability_only_if_cached(options = {})
         cache_control(Grape::Cache::ONLY_IF_CACHED, options)
       end
 
