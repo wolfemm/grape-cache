@@ -5,8 +5,9 @@ module Grape
     module Backend
       class CacheEntryMetadata
         attr_accessor :etag, :last_modified, :expire_at
+
         def initialize(*args)
-          args.extract_options!.each{|key,value| send("#{key}=", value)}
+          args.extract_options!.each { |key, value| send("#{key}=", value) }
         end
 
         def expired?(at_time = Time.now)
@@ -14,7 +15,7 @@ module Grape
         end
 
         def ==(value)
-          [:etag, :last_modified, :expire_at].reduce(true){|result, attr| result && (send(attr) == value.send(attr)) }
+          %i[etag last_modified expire_at].all? { |prop| send(prop) == value.send(prop) }
         end
       end
     end
