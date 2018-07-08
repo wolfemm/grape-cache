@@ -6,6 +6,7 @@ require "grape/cache/version"
 require "grape/cache/backend/memory"
 require "grape/cache/backend/redis"
 require "grape/cache/middleware"
+require "grape/cache/constants"
 
 module Grape
   class API

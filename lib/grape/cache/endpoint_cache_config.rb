@@ -5,8 +5,8 @@ require 'murmurhash3'
 module Grape
   module Cache
     class EndpointCacheConfig
-      def expire_after(value = nil, &block)
-        @expire_after_block = block_given? ? block : lambda{|*args| value.from_now }
+      def expires_in(value = nil, &block)
+        @expires_in_value = value || block
       end
 
       def initialize(*args)
@@ -29,6 +29,26 @@ module Grape
         @last_modified_block = block
       end
 
+      def cacheability(value = nil, &block)
+        @cacheability_value = value || block
+      end
+
+      def public
+        cacheability(Grape::Cache::PUBLIC)
+      end
+
+      def private
+        cacheability(Grape::Cache::PRIVATE)
+      end
+
+      def no_cache
+        cacheability(Grape::Cache::NO_CACHE)
+      end
+
+      def only_if_cached
+        cacheability(Grape::Cache::ONLY_IF_CACHED)
+      end
+
       # @param endpoint[Grape::Endpoint]
       # @param middleware[Grape::Cache::Middleware]
       def validate_cache(endpoint, middleware)
@@ -43,9 +63,12 @@ module Grape
 
         catch :cache_miss do
           if metadata = middleware.backend.fetch_metadata(cache_key)
-            if @etag
-              throw_cache_hit(middleware, cache_key){ @etag == metadata.etag }
+            etag = hashed_etag(endpoint)
+
+            if etag
+              throw_cache_hit(middleware, cache_key){ etag == metadata.etag }
             end
+
             if @last_modified
               throw_cache_hit(middleware, cache_key){ @last_modified <= metadata.last_modified }
             end
@@ -59,6 +82,7 @@ module Grape
       end
 
       private
+
       def cache_key_array(endpoint)
         endpoint.declared(endpoint.params, {}, [])
       end
@@ -70,37 +94,81 @@ module Grape
             endpoint.env['REQUEST_METHOD'].to_s,
             endpoint.env['PATH_INFO'],
             endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
-            MurmurHash3::V128.str_hexdigest((cache_key_block ? endpoint.instance_exec(cache_key_ary, &cache_key_block) : cache_key_ary).to_s)
+            MurmurHash3::V128.str_hexdigest(
+              (cache_key_block ? endpoint.instance_exec(cache_key_ary, &cache_key_block)
+                               : cache_key_ary
+              ).to_s
+            )
         ].inject(&:+)
       end
 
       def check_etag(endpoint)
-        return unless @etag_check_block
-        @etag = MurmurHash3::V128.str_hexdigest(endpoint.instance_eval(&@etag_check_block).to_s)
+        return unless etag_configured?
 
-        throw :cache_hit, Rack::Response.new([], 304, 'ETag' => @etag) if @etag == endpoint.env['HTTP_IF_NONE_MATCH']
-        build_cache_headers(endpoint, {'ETag' => @etag})
+        etag = hashed_etag(endpoint)
+
+        if etag == endpoint.env['HTTP_IF_NONE_MATCH']
+          throw :cache_hit, Rack::Response.new([], 304, 'ETag' => etag)
+        end
+
+        build_cache_headers(endpoint, { 'ETag' => etag })
+      end
+
+      def hashed_etag(endpoint)
+        @hashed_etag ||= MurmurHash3::V128.str_hexdigest(
+          endpoint.instance_eval(&@etag_check_block).to_s
+        )
+      end
+
+      def etag_configured?
+        @etag_check_block.present?
+      end
+
+      def resolved_last_modified(endpoint)
+        @resolved_last_modified ||= endpoint.instance_eval(&@last_modified_block)
+      end
+
+      def last_modified_httpdate(endpoint)
+        @last_modified_httpdate ||= resolved_last_modified(endpoint).httpdate
+      end
+
+      def last_modified_configured?
+        @last_modified_block.present?
+      end
+
+      def resolved_expires_in(endpoint)
+        @resolved_expires_in ||= resolve_value(endpoint, @expires_in_value)
+      end
+
+      def expires?
+        @expires_in_value.present?
       end
 
       def check_modified_since(endpoint)
-        return unless @last_modified_block
-        @last_modified = endpoint.instance_eval(&@last_modified_block)
+        return unless last_modified_configured?
 
         if_modified = endpoint.env['HTTP_IF_MODIFIED_SINCE'] && Time.httpdate(endpoint.env['HTTP_IF_MODIFIED_SINCE'])
         if_unmodified = endpoint.env['HTTP_IF_UNMODIFIED_SINCE'] && Time.httpdate(endpoint.env['HTTP_IF_UNMODIFIED_SINCE'])
 
-        throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => @last_modified.httpdate) if if_modified and (@last_modified <= if_modified)
-        throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => @last_modified.httpdate) if if_unmodified and (@last_modified > if_unmodified)
-        build_cache_headers(endpoint, {'Last-Modified' => @last_modified.httpdate})
+        header_value = last_modified_httpdate(endpoint)
+
+        if if_modified and (resolved_last_modified(endpoint) <= if_modified)
+          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => header_value)
+        end
+
+        if if_unmodified and (resolved_last_modified(endpoint) > if_unmodified)
+          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => header_value)
+        end
+
+        build_cache_headers(endpoint, {'Last-Modified' => header_value})
       end
 
       def create_capture_metadata(endpoint)
         args = {}
-        args[:etag] = @etag if @etag
-        args[:last_modified] = @last_modified if @last_modified
-        if @expire_after_block
-          args[:expire_at] = endpoint.instance_eval(&@expire_after_block)
-        end
+
+        args[:etag] = hashed_etag(endpoint) if etag_configured?
+        args[:last_modified] = resolved_last_modified(endpoint) if last_modified_configured?
+        args[:expire_at] = resolved_expires_in(endpoint).from_now if expires?
 
         Grape::Cache::Backend::CacheEntryMetadata.new(args)
       end
@@ -115,11 +183,22 @@ module Grape
       end
 
       def build_cache_headers(endpoint, headers = {})
-        expire_after = @expire_after_block ? (Time.now - endpoint.instance_eval(&@expire_after_block)).to_i : nil
+        expires_in = expires? ? resolved_expires_in(endpoint) : 0
+        cache_control = [(resolve_value(endpoint, @cacheability_value) || Grape::Cache::PUBLIC)]
+
+        cache_control << "max-age=#{expires_in}" if expires_in > 0
 
         endpoint.header('Vary','Accept,Accept-Version')
-        endpoint.header('Cache-Control',"public#{expire_after ? ",max-age=#{expire_after}" : ''}")
+        endpoint.header('Cache-Control', cache_control.join(", "))
         headers.each{|key, value| endpoint.header(key, value)}
+      end
+
+      def resolve_value(endpoint, value)
+        if value.respond_to?(:call)
+          endpoint.instance_eval(&value)
+        else
+          value
+        end
       end
     end
   end
