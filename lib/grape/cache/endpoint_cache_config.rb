@@ -84,7 +84,7 @@ module Grape
       private
 
       def cache_key_array(endpoint)
-        endpoint.declared(endpoint.params, {}, [])
+        endpoint.declared(endpoint.params)
       end
 
       def create_cache_key(endpoint)
