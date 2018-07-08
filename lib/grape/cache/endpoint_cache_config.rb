@@ -59,7 +59,7 @@ module Grape
 
         # If here, no HTTP cache hits occured
         # Retrieve request metadata
-        cache_key = create_cache_key(endpoint)
+        cache_key = create_backend_cache_key(endpoint)
 
         catch :cache_miss do
           if metadata = middleware.backend.fetch_metadata(cache_key)
@@ -83,12 +83,8 @@ module Grape
 
       private
 
-      def cache_key_array(endpoint)
-        endpoint.declared(endpoint.params)
-      end
-
-      def create_cache_key(endpoint)
-        cache_key_ary = cache_key_array(endpoint)
+      def create_backend_cache_key(endpoint)
+        cache_key_array = endpoint.declared(endpoint.params)
         cache_key_block = @cache_key_block
         [
             endpoint.env['REQUEST_METHOD'].to_s,
@@ -96,8 +92,8 @@ module Grape
             endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
             hashed_etag(endpoint),
             MurmurHash3::V128.str_hexdigest(
-              (cache_key_block ? endpoint.instance_exec(cache_key_ary, &cache_key_block)
-                               : cache_key_ary
+              (cache_key_block ? endpoint.instance_exec(cache_key_array, &cache_key_block)
+                               : cache_key_array
               ).to_s
             )
         ].inject(&:+)
