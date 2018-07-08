@@ -29,24 +29,30 @@ module Grape
         @last_modified_block = block
       end
 
-      def cache_control(*args, &block)
-        @cache_control_value = block_given? ? block : args
+      def cache_control(cacheability = Grape::Cache::PUBLIC, options = {}, &block)
+        @cache_control_value =
+          if block_given?
+            block
+          else
+            options[cacheability] = true unless cacheability.blank?
+            options
+          end
       end
 
-      def public
-        cache_control(Grape::Cache::PUBLIC)
+      def public(options = {})
+        cache_control(Grape::Cache::PUBLIC, options)
       end
 
-      def private
-        cache_control(Grape::Cache::PRIVATE)
+      def private(options = {})
+        cache_control(Grape::Cache::PRIVATE, options)
       end
 
-      def no_cache
-        cache_control(Grape::Cache::NO_CACHE)
+      def no_cache(options = {})
+        cache_control(Grape::Cache::NO_CACHE, options)
       end
 
-      def only_if_cached
-        cache_control(Grape::Cache::ONLY_IF_CACHED)
+      def only_if_cached(options = {})
+        cache_control(Grape::Cache::ONLY_IF_CACHED, options)
       end
 
       # @param endpoint[Grape::Endpoint]
@@ -177,21 +183,24 @@ module Grape
 
       def build_cache_headers(endpoint, headers = {})
         expires_in = expires? ? actual_expires_in(endpoint) : 0
-        cache_control = [(resolve_value(endpoint, @cache_control_value) || Grape::Cache::PUBLIC)]
-        cache_control_config = resolve_value(endpoint, @cache_control_value)
+        cache_control = {}
+        config = resolve_value(endpoint, @cache_control_value)
 
-        if cache_control_config.is_a?(Array)
-          cache_control += cache_control_config
-        else
-          cache_control << (cache_control_config || Grape::Cache::PUBLIC)
+        if config.is_a?(Array)
+          config.each { |directive| cache_control[directive] = true }
+        elsif config.is_a?(Hash)
+          cache_control.merge!(config)
         end
 
+        if expires_in > 0 && !cache_control.key?(Grape::Cache::MAX_AGE)
+          cache_control[Grape::Cache::MAX_AGE] = expires_in
+        end
 
-        cache_control << "max-age=#{expires_in}" if expires_in > 0
+        cache_control = cache_control.map { |k, v| v == true ? k : "#{k}=#{v}" }
 
-        endpoint.header('Vary','Accept,Accept-Version')
+        endpoint.header('Vary', 'Accept,Accept-Version')
         endpoint.header('Cache-Control', cache_control.join(", "))
-        headers.each{|key, value| endpoint.header(key, value)}
+        headers.each { |key, value| endpoint.header(key, value) }
       end
 
       def resolve_value(endpoint, value)
