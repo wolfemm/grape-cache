@@ -20,8 +20,10 @@ module Grape
             key,
             "status", response.status.to_s,
             "headers", MultiJson.dump(response.headers),
-            "body", MultiJson.dump(response.body),
-            "metadata", MultiJson.dump(metadata)
+            "metadata", MultiJson.dump(metadata),
+
+            # Using #as_json to avoid quote escaping since this won't be parsed before being sent
+            "body", response.body.as_json,
           ]
           if metadata.expire_at
             storage.multi
@@ -35,7 +37,7 @@ module Grape
 
         def fetch(key)
           status, headers, body = storage.hmget(key, "status", "headers", "body")
-          Rack::Response.new(MultiJson.load(body), status.to_i, MultiJson.load(headers))
+          Rack::Response.new(body, status.to_i, MultiJson.load(headers))
         rescue
           nil
         end
