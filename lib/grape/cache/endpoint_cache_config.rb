@@ -65,12 +65,12 @@ module Grape
           if metadata = middleware.backend.fetch_metadata(cache_key)
             etag = hashed_etag(endpoint)
 
-            if etag
-              throw_cache_hit(middleware, cache_key){ etag == metadata.etag }
-            end
+            throw_cache_hit(middleware, cache_key) { etag == metadata.etag } if etag
 
-            if @last_modified
-              throw_cache_hit(middleware, cache_key){ @last_modified <= metadata.last_modified }
+            if last_modified_configured?
+              throw_cache_hit(middleware, cache_key) do
+                resolved_last_modified(endpoint) <= metadata.last_modified
+              end
             end
 
             throw_cache_hit(middleware, cache_key)
