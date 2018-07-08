@@ -5,10 +5,6 @@ require 'murmurhash3'
 module Grape
   module Cache
     class EndpointCacheConfig
-      def expires_in(value = nil, &block)
-        @expires_in_value = value || block
-      end
-
       def initialize(*args)
         args.extract_options!.each{|key, value| send("#{key}=", value)}
       end
@@ -25,28 +21,32 @@ module Grape
         @etag_check_block = block
       end
 
+      def expires_in(value = nil, &block)
+        @expires_in_value = value || block
+      end
+
       def last_modified(&block)
         @last_modified_block = block
       end
 
-      def cacheability(value = nil, &block)
-        @cacheability_value = value || block
+      def cache_control(*args, &block)
+        @cache_control_value = block_given? ? block : args
       end
 
       def public
-        cacheability(Grape::Cache::PUBLIC)
+        cache_control(Grape::Cache::PUBLIC)
       end
 
       def private
-        cacheability(Grape::Cache::PRIVATE)
+        cache_control(Grape::Cache::PRIVATE)
       end
 
       def no_cache
-        cacheability(Grape::Cache::NO_CACHE)
+        cache_control(Grape::Cache::NO_CACHE)
       end
 
       def only_if_cached
-        cacheability(Grape::Cache::ONLY_IF_CACHED)
+        cache_control(Grape::Cache::ONLY_IF_CACHED)
       end
 
       # @param endpoint[Grape::Endpoint]
@@ -177,7 +177,15 @@ module Grape
 
       def build_cache_headers(endpoint, headers = {})
         expires_in = expires? ? actual_expires_in(endpoint) : 0
-        cache_control = [(resolve_value(endpoint, @cacheability_value) || Grape::Cache::PUBLIC)]
+        cache_control = [(resolve_value(endpoint, @cache_control_value) || Grape::Cache::PUBLIC)]
+        cache_control_config = resolve_value(endpoint, @cache_control_value)
+
+        if cache_control_config.is_a?(Array)
+          cache_control += cache_control_config
+        else
+          cache_control << (cache_control_config || Grape::Cache::PUBLIC)
+        end
+
 
         cache_control << "max-age=#{expires_in}" if expires_in > 0
 
