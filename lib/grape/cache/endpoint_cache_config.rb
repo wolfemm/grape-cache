@@ -69,7 +69,7 @@ module Grape
 
             if last_modified_configured?
               throw_cache_hit(middleware, cache_key) do
-                resolved_last_modified(endpoint) <= metadata.last_modified
+                actual_last_modified(endpoint) <= metadata.last_modified
               end
             end
 
@@ -121,20 +121,16 @@ module Grape
         @etag_check_block.present?
       end
 
-      def resolved_last_modified(endpoint)
-        @resolved_last_modified ||= endpoint.instance_eval(&@last_modified_block)
-      end
-
-      def last_modified_httpdate(endpoint)
-        @last_modified_httpdate ||= resolved_last_modified(endpoint).httpdate
+      def actual_last_modified(endpoint)
+        @actual_last_modified ||= endpoint.instance_eval(&@last_modified_block)
       end
 
       def last_modified_configured?
         @last_modified_block.present?
       end
 
-      def resolved_expires_in(endpoint)
-        @resolved_expires_in ||= resolve_value(endpoint, @expires_in_value)
+      def actual_expires_in(endpoint)
+        @actual_expires_in ||= resolve_value(endpoint, @expires_in_value)
       end
 
       def expires?
@@ -147,13 +143,13 @@ module Grape
         if_modified = endpoint.env['HTTP_IF_MODIFIED_SINCE'] && Time.httpdate(endpoint.env['HTTP_IF_MODIFIED_SINCE'])
         if_unmodified = endpoint.env['HTTP_IF_UNMODIFIED_SINCE'] && Time.httpdate(endpoint.env['HTTP_IF_UNMODIFIED_SINCE'])
 
-        header_value = last_modified_httpdate(endpoint)
+        header_value = actual_last_modified(endpoint).httpdate
 
-        if if_modified and (resolved_last_modified(endpoint) <= if_modified)
+        if if_modified and (actual_last_modified(endpoint) <= if_modified)
           throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => header_value)
         end
 
-        if if_unmodified and (resolved_last_modified(endpoint) > if_unmodified)
+        if if_unmodified and (actual_last_modified(endpoint) > if_unmodified)
           throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => header_value)
         end
 
@@ -164,8 +160,8 @@ module Grape
         args = {}
 
         args[:etag] = hashed_etag(endpoint) if etag_configured?
-        args[:last_modified] = resolved_last_modified(endpoint) if last_modified_configured?
-        args[:expire_at] = resolved_expires_in(endpoint).from_now if expires?
+        args[:last_modified] = actual_last_modified(endpoint) if last_modified_configured?
+        args[:expire_at] = actual_expires_in(endpoint).from_now if expires?
 
         Grape::Cache::Backend::CacheEntryMetadata.new(args)
       end
@@ -180,7 +176,7 @@ module Grape
       end
 
       def build_cache_headers(endpoint, headers = {})
-        expires_in = expires? ? resolved_expires_in(endpoint) : 0
+        expires_in = expires? ? actual_expires_in(endpoint) : 0
         cache_control = [(resolve_value(endpoint, @cacheability_value) || Grape::Cache::PUBLIC)]
 
         cache_control << "max-age=#{expires_in}" if expires_in > 0
