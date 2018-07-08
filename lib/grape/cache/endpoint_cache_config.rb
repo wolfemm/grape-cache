@@ -167,7 +167,7 @@ module Grape
 
         args[:etag] = hashed_etag(endpoint) if etag_configured?
         args[:last_modified] = actual_last_modified(endpoint) if last_modified_configured?
-        args[:expire_at] = actual_expires_in(endpoint).from_now if expires?
+        args[:expire_at] = (Time.current + actual_expires_in(endpoint)) if expires?
 
         Grape::Cache::Backend::CacheEntryMetadata.new(args)
       end
