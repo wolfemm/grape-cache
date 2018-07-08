@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 RSpec.shared_examples 'caching_backend' do
   let(:response){ Rack::Response.new(['value'], 200, {}) }
   after(:each) do

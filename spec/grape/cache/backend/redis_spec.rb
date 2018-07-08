@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'mock_redis'
 require_relative '../../../../spec/shared/backend'

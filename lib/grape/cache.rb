@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "grape/cache/patches"
 require "grape/cache/dsl"
 require "grape/cache/version"

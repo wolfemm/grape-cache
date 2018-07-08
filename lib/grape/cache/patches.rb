@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Updated for Grape 0.18
 
 require 'grape'

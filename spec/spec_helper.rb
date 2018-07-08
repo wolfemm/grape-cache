@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'grape/cache'
 require 'rack'
 require 'rack/test'

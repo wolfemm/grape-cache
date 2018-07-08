@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'cache_entry_metadata'
 
 module Grape

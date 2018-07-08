@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'memory'
 module Grape
   module Cache
