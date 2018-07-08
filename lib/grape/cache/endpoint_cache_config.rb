@@ -1,5 +1,5 @@
-require 'digest'
-require 'digest/murmurhash'
+require 'murmurhash3'
+
 module Grape
   module Cache
     class EndpointCacheConfig
@@ -68,13 +68,13 @@ module Grape
             endpoint.env['REQUEST_METHOD'].to_s,
             endpoint.env['PATH_INFO'],
             endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
-            Digest::MurmurHash64B.hexdigest((cache_key_block ? endpoint.instance_exec(cache_key_ary, &cache_key_block) : cache_key_ary).to_s)
+            MurmurHash3::V128.str_hexdigest((cache_key_block ? endpoint.instance_exec(cache_key_ary, &cache_key_block) : cache_key_ary).to_s)
         ].inject(&:+)
       end
 
       def check_etag(endpoint)
         return unless @etag_check_block
-        @etag = Digest::MurmurHash64B.hexdigest(endpoint.instance_eval(&@etag_check_block).to_s)
+        @etag = MurmurHash3::V128.str_hexdigest(endpoint.instance_eval(&@etag_check_block).to_s)
 
         throw :cache_hit, Rack::Response.new([], 304, 'ETag' => @etag) if @etag == endpoint.env['HTTP_IF_NONE_MATCH']
         build_cache_headers(endpoint, {'ETag' => @etag})
