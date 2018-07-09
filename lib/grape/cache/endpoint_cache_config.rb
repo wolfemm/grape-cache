@@ -26,7 +26,12 @@ module Grape
       end
 
       def vary(*values, &block)
-        @vary_by_value = values || block
+        @vary_by_value =
+          if block_given?
+            block
+          else
+            values.size == 1 ? values.first : values
+          end
       end
 
       def last_modified(&block)
