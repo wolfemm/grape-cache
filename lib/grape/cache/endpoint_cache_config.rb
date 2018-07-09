@@ -106,12 +106,13 @@ module Grape
             endpoint.env['PATH_INFO'],
             endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
             hashed_etag(endpoint),
+            actual_last_modified(endpoint),
             MurmurHash3::V128.str_hexdigest(
               (cache_key_block ? endpoint.instance_exec(cache_key_array, &cache_key_block)
                                : cache_key_array
               ).to_s
             )
-        ].inject(&:+)
+        ].join
       end
 
       def check_etag(endpoint)
@@ -127,6 +128,8 @@ module Grape
       end
 
       def hashed_etag(endpoint)
+        return unless etag_configured?
+
         @hashed_etag ||= MurmurHash3::V128.str_hexdigest(
           endpoint.instance_eval(&@etag_check_block).to_s
         )
@@ -158,17 +161,17 @@ module Grape
         if_modified = endpoint.env['HTTP_IF_MODIFIED_SINCE'] && Time.httpdate(endpoint.env['HTTP_IF_MODIFIED_SINCE'])
         if_unmodified = endpoint.env['HTTP_IF_UNMODIFIED_SINCE'] && Time.httpdate(endpoint.env['HTTP_IF_UNMODIFIED_SINCE'])
 
-        header_value = actual_last_modified(endpoint).httpdate
+        last_modified = actual_last_modified(endpoint).httpdate
 
-        if if_modified and (actual_last_modified(endpoint) <= if_modified)
-          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => header_value)
+        if if_modified && last_modified <= if_modified
+          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => last_modified)
         end
 
-        if if_unmodified and (actual_last_modified(endpoint) > if_unmodified)
-          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => header_value)
+        if if_unmodified && last_modified > if_unmodified
+          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => last_modified)
         end
 
-        build_cache_headers(endpoint, {'Last-Modified' => header_value})
+        build_cache_headers(endpoint, {'Last-Modified' => last_modified})
       end
 
       def create_capture_metadata(endpoint)
