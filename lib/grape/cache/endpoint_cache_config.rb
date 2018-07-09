@@ -38,12 +38,12 @@ module Grape
         @last_modified_block = block
       end
 
-      def cache_control(cacheability = Grape::Cache::PUBLIC, options = {}, &block)
+      def cache_control(*args, **options, &block)
         @cache_control_value =
           if block_given?
             block
           else
-            options[cacheability] = true unless cacheability.blank?
+            args.each { |directive| options[directive] = true }
             options
           end
       end
