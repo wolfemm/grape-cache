@@ -140,6 +140,8 @@ module Grape
       end
 
       def actual_last_modified(endpoint)
+        return unless last_modified_configured?
+
         @actual_last_modified ||= endpoint.instance_eval(&@last_modified_block)
       end
 

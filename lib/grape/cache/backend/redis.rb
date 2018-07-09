@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "zstd-ruby"
+require "msgpack"
 
 require_relative "memory"
 require_relative "cache_entry_metadata"
@@ -28,12 +29,11 @@ module Grape
         # @param response[Rack::Response]
         # @param metadata[Grape::Cache::Backend::CacheEntryMetadata] Entry metadata
         def store(key, response, metadata)
-          # Using #as_json to avoid quote escaping since this won't be parsed before being sent
           json_body = response.body.first
-          header_json = MultiJson.dump(response.headers)
+          packed_headers = MessagePack.pack(response.headers)
 
           compress_body = json_body.bytesize >= ZIP_THRESHOLD
-          compress_headers = header_json.bytesize >= ZIP_THRESHOLD
+          compress_headers = packed_headers.bytesize >= ZIP_THRESHOLD
 
           compression_flags = 0
           compression_flags |= FLAG_BODY if compress_body
@@ -44,7 +44,7 @@ module Grape
             COMPRESSION_KEY, compression_flags.to_s,
             STATUS_KEY,      response.status.to_s,
             METADATA_KEY,    metadata.encode,
-            HEADERS_KEY,     compress_if(compress_headers, header_json),
+            HEADERS_KEY,     compress_if(compress_headers, packed_headers),
             BODY_KEY,        compress_if(compress_body, json_body),
           ]
 
@@ -75,7 +75,7 @@ module Grape
           body = decompress_if(compression_flags & FLAG_BODY != 0, body)
           headers = decompress_if(compression_flags & FLAG_HEADERS != 0, headers)
 
-          Rack::Response.new(body, status.to_i, MultiJson.load(headers))
+          Rack::Response.new(body, status.to_i, MessagePack.unpack(headers))
         rescue
           nil
         end
