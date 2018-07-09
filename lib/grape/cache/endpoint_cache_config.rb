@@ -48,20 +48,20 @@ module Grape
           end
       end
 
-      def cacheability_public(options = {})
-        cache_control(Grape::Cache::PUBLIC, options)
+      def http_cache_public(*args, **options)
+        cache_control(Grape::Cache::PUBLIC, *args, **options)
       end
 
-      def cacheability_private(options = {})
-        cache_control(Grape::Cache::PRIVATE, options)
+      def http_cache_private(*args, **options)
+        cache_control(Grape::Cache::PRIVATE, *args, **options)
       end
 
-      def cacheability_no_cache(options = {})
-        cache_control(Grape::Cache::NO_CACHE, options)
+      def http_cache_no_cache(*args, **options)
+        cache_control(Grape::Cache::NO_CACHE, *args, **options)
       end
 
-      def cacheability_only_if_cached(options = {})
-        cache_control(Grape::Cache::ONLY_IF_CACHED, options)
+      def http_cache_only_if_cached(*args, **options)
+        cache_control(Grape::Cache::ONLY_IF_CACHED, *args, **options)
       end
 
       # @param endpoint[Grape::Endpoint]
