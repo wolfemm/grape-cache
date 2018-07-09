@@ -43,7 +43,7 @@ module Grape
             key,
             COMPRESSION_KEY, compression_flags.to_s,
             STATUS_KEY,      response.status.to_s,
-            METADATA_KEY,    MultiJson.dump(metadata),
+            METADATA_KEY,    metadata.encode,
             HEADERS_KEY,     compress_if(compress_headers, header_json),
             BODY_KEY,        compress_if(compress_body, json_body),
           ]
@@ -82,9 +82,7 @@ module Grape
 
         # @param key[String] Cache key
         def fetch_metadata(key)
-          Grape::Cache::Backend::CacheEntryMetadata.new(
-            MultiJson.load(storage.hget(key, METADATA_KEY))
-          )
+          Grape::Cache::Backend::CacheEntryMetadata.decode(storage.hget(key, METADATA_KEY))
         rescue
           nil
         end
