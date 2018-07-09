@@ -191,28 +191,28 @@ module Grape
       end
 
       def build_cache_headers(endpoint, headers = {})
-        cache_control = {}
+        directives = {}
         cache_control_config = resolve_value(endpoint, @cache_control_value)
 
         case cache_control_config
         when Array
-          cache_control_config.each { |directive| cache_control[directive] = true }
+          cache_control_config.each { |directive| directives[directive] = true }
         when Hash
-          cache_control.merge!(cache_control_config)
+          directives.merge!(cache_control_config)
         when String
-          cache_control[cache_control_config] = true
+          directives[cache_control_config] = true
         end
 
         expires_in = expires? ? actual_expires_in(endpoint) : 0
-        if expires_in > 0 && !cache_control.key?(Grape::Cache::MAX_AGE)
-          cache_control[Grape::Cache::MAX_AGE] = expires_in
+        if expires_in > 0 && !directives.key?(Grape::Cache::MAX_AGE)
+          directives[Grape::Cache::MAX_AGE] = expires_in
         end
 
         if @vary_by_value.present?
           endpoint.header('Vary', format_header_value(resolve_value(endpoint, @vary_by_value)))
         end
 
-        endpoint.header('Cache-Control', format_header_value(cache_control))
+        endpoint.header('Cache-Control', format_header_value(directives))
         headers.each { |key, value| endpoint.header(key, value) }
       end
 
@@ -229,7 +229,7 @@ module Grape
         when Array
           value.join(LIST_DELIMETER)
         when Hash
-          cache_control.map { |k, v| v == true ? k : "#{k}=#{v}" }
+          value.map { |k, v| v == true ? k : "#{k}=#{v}" }.join(LIST_DELIMETER)
         else
           value
         end
