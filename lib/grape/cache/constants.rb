@@ -2,6 +2,8 @@
 
 module Grape
   module Cache
+    LIST_DELIMETER = ", "
+
     # Cacheability
     PUBLIC = "public"
     PRIVATE = "private"

@@ -25,6 +25,10 @@ module Grape
         @expires_in_value = value || block
       end
 
+      def vary(*values, &block)
+        @vary_by_value = values || block
+      end
+
       def last_modified(&block)
         @last_modified_block = block
       end
@@ -182,30 +186,45 @@ module Grape
       end
 
       def build_cache_headers(endpoint, headers = {})
-        expires_in = expires? ? actual_expires_in(endpoint) : 0
         cache_control = {}
-        config = resolve_value(endpoint, @cache_control_value)
+        cache_control_config = resolve_value(endpoint, @cache_control_value)
 
-        if config.is_a?(Array)
-          config.each { |directive| cache_control[directive] = true }
-        elsif config.is_a?(Hash)
-          cache_control.merge!(config)
+        case cache_control_config
+        when Array
+          cache_control_config.each { |directive| cache_control[directive] = true }
+        when Hash
+          cache_control.merge!(cache_control_config)
+        when String
+          cache_control[cache_control_config] = true
         end
 
+        expires_in = expires? ? actual_expires_in(endpoint) : 0
         if expires_in > 0 && !cache_control.key?(Grape::Cache::MAX_AGE)
           cache_control[Grape::Cache::MAX_AGE] = expires_in
         end
 
-        cache_control = cache_control.map { |k, v| v == true ? k : "#{k}=#{v}" }
+        if @vary_by_value.present?
+          endpoint.header('Vary', format_header_value(resolve_value(endpoint, @vary_by_value)))
+        end
 
-        endpoint.header('Vary', 'Accept,Accept-Version')
-        endpoint.header('Cache-Control', cache_control.join(", "))
+        endpoint.header('Cache-Control', format_header_value(cache_control))
         headers.each { |key, value| endpoint.header(key, value) }
       end
 
       def resolve_value(endpoint, value)
         if value.respond_to?(:call)
           endpoint.instance_eval(&value)
+        else
+          value
+        end
+      end
+
+      def format_header_value(value)
+        case value
+        when Array
+          value.join(LIST_DELIMETER)
+        when Hash
+          cache_control.map { |k, v| v == true ? k : "#{k}=#{v}" }
         else
           value
         end
