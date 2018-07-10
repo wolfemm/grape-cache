@@ -14,7 +14,7 @@ module Grape
         end
 
         def route(methods, paths = ['/'], route_options = {}, &block)
-          super(methods, paths, route_options.deep_merge({cache: route_setting(:cache)}), &block)
+          super(methods, paths, route_options.deep_merge!({cache: route_setting(:cache)}), &block)
         end
       end
     end
