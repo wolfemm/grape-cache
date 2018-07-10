@@ -29,10 +29,20 @@ module Grape
         # @param response[Rack::Response]
         # @param metadata[Grape::Cache::Backend::CacheEntryMetadata] Entry metadata
         def store(key, response, metadata)
-          json_body = response.body.first
-          packed_headers = MessagePack.pack(response.headers)
+          case response
+          when Rack::Response
+            status = response.status
+            headers = response.headers
+            body = response.body.first
+          when Array
+            status = response[0]
+            headers = response[1]
+            body = response[2].first
+          end
 
-          compress_body = json_body.bytesize >= ZIP_THRESHOLD
+          packed_headers = MessagePack.pack(headers)
+
+          compress_body = body.bytesize >= ZIP_THRESHOLD
           compress_headers = packed_headers.bytesize >= ZIP_THRESHOLD
 
           compression_flags = 0
@@ -42,10 +52,10 @@ module Grape
           args = [
             key,
             COMPRESSION_KEY, compression_flags.to_s,
-            STATUS_KEY,      response.status.to_s,
+            STATUS_KEY,      status.to_s,
             METADATA_KEY,    metadata.encode,
             HEADERS_KEY,     compress_if(compress_headers, packed_headers),
-            BODY_KEY,        compress_if(compress_body, json_body),
+            BODY_KEY,        compress_if(compress_body, body),
           ]
 
           if metadata.expire_at
