@@ -4,12 +4,13 @@ require_relative 'backend/memory'
 
 module Grape
   module Cache
-    class Middleware
-      attr_accessor :backend
-      def initialize(*args)
-        options = {backend: Grape::Cache::Backend::Memory.new}.merge(args.extract_options!)
-        @app = args.first
-        @backend = options[:backend]
+    class Middleware < Grape::Middleware::Base
+      def default_options
+        { backend: Grape::Cache::Backend::Memory.new }
+      end
+
+      def backend
+        @options[:backend]
       end
 
       def call(env)
@@ -20,6 +21,7 @@ module Grape
         end
         result
       end
+      alias_method :call!, :call
     end
   end
 end
