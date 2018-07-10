@@ -23,7 +23,7 @@ module Grape
         end
 
         def encode
-          MessagePack.pack([etag, last_modified&.strftime(FULL_TIME_FORMAT), expire_at.to_i])
+          MessagePack.pack([etag, last_modified&.strftime(FULL_TIME_FORMAT), expire_at&.to_i])
         end
 
         def self.decode(encoded_value)
@@ -33,9 +33,11 @@ module Grape
             last_modified = Time.zone.strptime(last_modified, FULL_TIME_FORMAT)
           end
 
+          expire_at = Time.zone.at(expire_at.to_i) unless expire_at.blank?
+
           new({
             etag: etag,
-            expire_at: Time.zone.at(expire_at.to_i),
+            expire_at: expire_at,
             last_modified: last_modified,
           })
         end
