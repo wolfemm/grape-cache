@@ -105,8 +105,6 @@ module Grape
             endpoint.env['REQUEST_METHOD'].to_s,
             endpoint.env['PATH_INFO'],
             endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
-            hashed_etag(endpoint),
-            actual_last_modified(endpoint),
             MurmurHash3::V128.str_hexdigest(
               (cache_key_block ? endpoint.instance_exec(cache_key_array, &cache_key_block)
                                : cache_key_array
