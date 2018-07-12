@@ -218,9 +218,8 @@ module Grape
           directives[cache_control_config] = true
         end
 
-        max_age = max_age? ? actual_max_age(endpoint) : 0
-        if max_age > 0 && !directives.key?(Grape::Cache::MAX_AGE)
-          directives[Grape::Cache::MAX_AGE] = max_age
+        if max_age? && !directives.key?(Grape::Cache::MAX_AGE)
+          directives[Grape::Cache::MAX_AGE] = actual_max_age(endpoint)
         end
 
         if @vary_by_value.present?
