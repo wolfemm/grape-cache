@@ -13,7 +13,8 @@ module Grape
         @prepare_block = block
       end
 
-      def cache_key(&block)
+      def cache_key(params: true, &block)
+        @cache_with_params = params
         @cache_key_block = block
       end
 
@@ -110,17 +111,19 @@ module Grape
       private
 
       def create_backend_cache_key(endpoint)
-        cache_key_array = endpoint.declared(endpoint.params)
-        cache_key_block = @cache_key_block
+        cache_key_array = []
+
+        cache_key_array << endpoint.declared(endpoint.params) if @cache_with_params
+
+        if @cache_key_block
+          cache_key_array << endpoint.instance_exec(cache_key_array, &@cache_key_block)
+        end
+
         [
             endpoint.env['REQUEST_METHOD'].to_s,
             endpoint.env['PATH_INFO'],
             endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
-            MurmurHash3::V128.str_hexdigest(
-              (cache_key_block ? endpoint.instance_exec(cache_key_array, &cache_key_block)
-                               : cache_key_array
-              ).to_s
-            )
+            MurmurHash3::V128.str_hexdigest(MessagePack.pack(cache_key_array))
         ].join
       end
 
