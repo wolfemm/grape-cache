@@ -156,7 +156,7 @@ module Grape
       end
 
       def max_age?
-        @actual_max_age.present?
+        @max_age_value.present?
       end
 
       def actual_expires_in(endpoint)
