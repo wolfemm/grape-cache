@@ -20,8 +20,9 @@ module Grape
         run_filters befores, :before
 
         #  Inject our cache check
-        options[:route_options][:cache] &&
-        options[:route_options][:cache].validate_cache(self, env['grape.cache'])
+        options[:route_options][:cache] && Grape::Cache::Verifier.new(
+          self, env['grape.cache'], options[:route_options][:cache].options
+        ).run
 
         if (allowed_methods = env[Grape::Env::GRAPE_ALLOWED_METHODS])
           raise Grape::Exceptions::MethodNotAllowed, header.merge('Allow' => allowed_methods) unless options?
