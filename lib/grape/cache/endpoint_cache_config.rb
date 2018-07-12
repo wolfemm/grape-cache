@@ -17,7 +17,8 @@ module Grape
         @cache_key_block = block
       end
 
-      def etag(&block)
+      def etag(perform_hash = true, &block)
+        @hash_etag = perform_hash
         @etag_check_block = block
       end
 
@@ -87,7 +88,7 @@ module Grape
 
         catch :cache_miss do
           if metadata = middleware.backend.fetch_metadata(cache_key)
-            etag = hashed_etag(endpoint)
+            etag = actual_etag(endpoint)
 
             throw_cache_hit(middleware, cache_key) { etag == metadata.etag } if etag
 
@@ -125,7 +126,7 @@ module Grape
       def check_etag(endpoint)
         return unless etag_configured?
 
-        etag = hashed_etag(endpoint)
+        etag = actual_etag(endpoint)
 
         if etag == endpoint.env['HTTP_IF_NONE_MATCH']
           throw :cache_hit, Rack::Response.new([], 304, 'ETag' => etag)
@@ -134,12 +135,13 @@ module Grape
         build_cache_headers(endpoint, { 'ETag' => etag })
       end
 
-      def hashed_etag(endpoint)
+      def actual_etag(endpoint)
         return unless etag_configured?
 
-        @hashed_etag ||= MurmurHash3::V128.str_hexdigest(
-          endpoint.instance_eval(&@etag_check_block).to_s
-        )
+        @actual_etag ||= begin
+          value = endpoint.instance_eval(&@etag_check_block).to_s
+          @hash_etag ? MurmurHash3::V128.str_hexdigest(value) : value
+        end
       end
 
       def etag_configured?
@@ -194,7 +196,7 @@ module Grape
       def create_capture_metadata(endpoint)
         args = {}
 
-        args[:etag] = hashed_etag(endpoint) if etag_configured?
+        args[:etag] = actual_etag(endpoint) if etag_configured?
         args[:last_modified] = actual_last_modified(endpoint) if last_modified_configured?
         args[:expire_at] = (Time.current + actual_expires_in(endpoint)) if expires?
 
