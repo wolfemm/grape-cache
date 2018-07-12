@@ -29,6 +29,11 @@ module Grape
         @max_age_value = value || block
       end
 
+      def without_http_caching
+        max_age(0)
+        cache_control(Grape::Cache::PRIVATE, Grape::Cache::MUST_REVALIDATE)
+      end
+
       def vary(*values, &block)
         @vary_by_value =
           if block_given?
