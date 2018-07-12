@@ -120,10 +120,10 @@ module Grape
         end
 
         [
-            endpoint.env['REQUEST_METHOD'].to_s,
-            endpoint.env['PATH_INFO'],
-            endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
-            MurmurHash3::V128.str_hexdigest(MessagePack.pack(cache_key_array))
+          endpoint.env['REQUEST_METHOD'].to_s,
+          endpoint.env['PATH_INFO'],
+          endpoint.env['HTTP_ACCEPT_VERSION'].to_s,
+          MurmurHash3::V128.str_hexdigest(MessagePack.pack(cache_key_array))
         ].join
       end
 
