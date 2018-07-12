@@ -25,6 +25,10 @@ module Grape
         @expires_in_value = value || block
       end
 
+      def max_age(value = nil, &block)
+        @max_age_value = value || block
+      end
+
       def vary(*values, &block)
         @vary_by_value =
           if block_given?
@@ -147,6 +151,14 @@ module Grape
         @last_modified_block.present?
       end
 
+      def actual_max_age(endpoint)
+        @actual_max_age ||= resolve_value(endpoint, @max_age_value)
+      end
+
+      def max_age?
+        @actual_max_age.present?
+      end
+
       def actual_expires_in(endpoint)
         @actual_expires_in ||= resolve_value(endpoint, @expires_in_value)
       end
@@ -206,9 +218,9 @@ module Grape
           directives[cache_control_config] = true
         end
 
-        expires_in = expires? ? actual_expires_in(endpoint) : 0
-        if expires_in > 0 && !directives.key?(Grape::Cache::MAX_AGE)
-          directives[Grape::Cache::MAX_AGE] = expires_in
+        max_age = max_age? ? actual_max_age(endpoint) : 0
+        if max_age > 0 && !directives.key?(Grape::Cache::MAX_AGE)
+          directives[Grape::Cache::MAX_AGE] = max_age
         end
 
         if @vary_by_value.present?
