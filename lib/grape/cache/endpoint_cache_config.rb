@@ -17,8 +17,9 @@ module Grape
         @cache_key_block = block
       end
 
-      def etag(perform_hash = true, &block)
-        @hash_etag = perform_hash
+      def etag(weak: false, hash: true, &block)
+        @hash_etag = hash
+        @etag_is_weak = weak
         @etag_check_block = block
       end
 
@@ -140,7 +141,8 @@ module Grape
 
         @actual_etag ||= begin
           value = endpoint.instance_eval(&@etag_check_block).to_s
-          @hash_etag ? MurmurHash3::V128.str_hexdigest(value) : value
+          value = MurmurHash3::V128.str_hexdigest(value) if @hash_etag
+          "#{@etag_is_weak ? 'W/' : ''}\"#{value}\""
         end
       end
 
