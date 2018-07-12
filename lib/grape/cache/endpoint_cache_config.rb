@@ -113,7 +113,7 @@ module Grape
       def create_backend_cache_key(endpoint)
         cache_key_array = []
 
-        cache_key_array << endpoint.declared(endpoint.params) if @cache_with_params
+        cache_key_array << endpoint.declared(endpoint.params) unless @cache_with_params == false
 
         if @cache_key_block
           cache_key_array << endpoint.instance_exec(cache_key_array, &@cache_key_block)
