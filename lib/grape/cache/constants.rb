@@ -4,6 +4,8 @@ module Grape
   module Cache
     LIST_DELIMETER = ", "
 
+    WEAK_ETAG_INDICATOR = "W/"
+
     # Cacheability
     PUBLIC = "public"
     PRIVATE = "private"

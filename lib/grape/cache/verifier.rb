@@ -92,7 +92,7 @@ module Grape
         @etag ||= begin
           value = @endpoint.instance_eval(&@raw_options[:etag_check_block]).to_s
           value = MurmurHash3::V128.str_hexdigest(value) if @raw_options[:hash_etag]
-          "#{@etag_is_weak ? 'W/' : ''}\"#{value}\""
+          "#{@etag_is_weak ? Grape::Cache::WEAK_ETAG_INDICATOR : ''}\"#{value}\""
         end
       end
 
