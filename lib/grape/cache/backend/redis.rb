@@ -58,13 +58,11 @@ module Grape
             BODY_KEY,        compress_if(compress_body, body),
           ]
 
-          if metadata.expire_at
-            storage.multi
-            storage.hmset(*args)
-            storage.expireat key, metadata.expire_at.to_i
-            storage.exec
-          else
-            storage.hmset(*args)
+          return storage.hmset(*args) unless metadata.expire_at
+
+          storage.multi do |conn|
+            conn.hmset(*args)
+            conn.expireat key, metadata.expire_at.to_i
           end
         end
 
