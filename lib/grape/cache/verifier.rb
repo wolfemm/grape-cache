@@ -177,6 +177,8 @@ module Grape
           )
         end
 
+        cache_key_array << etag if @raw_options[:use_etag_in_cache_key]
+
         [
           @endpoint.env['REQUEST_METHOD'].to_s,
           @endpoint.env['PATH_INFO'],

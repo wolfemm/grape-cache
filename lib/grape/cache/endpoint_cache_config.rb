@@ -21,7 +21,8 @@ module Grape
         @raw_options[:cache_key_block] = block if block_given?
       end
 
-      def etag(weak: true, hash: true, &block)
+      def etag(weak: true, hash: true, cache_key: false, &block)
+        @raw_options[:use_etag_in_cache_key] = cache_key
         @raw_options[:hash_etag] = hash
         @raw_options[:etag_is_weak] = weak
         @raw_options[:etag_check_block] = block
