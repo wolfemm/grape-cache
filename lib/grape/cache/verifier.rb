@@ -26,7 +26,11 @@ module Grape
         catch :cache_miss do
           if metadata = @middleware.backend.fetch_metadata(cache_key)
             throw_cache_hit(cache_key) { etag == metadata.etag } if etag?
-            throw_cache_hit(cache_key) { last_modified <= metadata.last_modified } if last_modified
+            if last_modified
+              throw_cache_hit(cache_key) do
+                metadata.last_modified && last_modified <= metadata.last_modified
+              end
+            end
             throw_cache_hit(cache_key)
           end
         end
@@ -48,22 +52,25 @@ module Grape
       end
 
       def check_modified_since!
-        last_modified = last_modified&.httpdate
+        return unless last_modified_httpdate = last_modified&.httpdate
 
-        return unless last_modified
-
-        if_modified = @endpoint.env['HTTP_IF_MODIFIED_SINCE'] && Time.httpdate(@endpoint.env['HTTP_IF_MODIFIED_SINCE'])
-        if_unmodified = @endpoint.env['HTTP_IF_UNMODIFIED_SINCE'] && Time.httpdate(@endpoint.env['HTTP_IF_UNMODIFIED_SINCE'])
-
+        if_modified = request_date_header("HTTP_IF_MODIFIED_SINCE")
         if if_modified && last_modified <= if_modified
-          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => last_modified)
+          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => last_modified_httpdate)
         end
 
+        if_unmodified = request_date_header("HTTP_IF_UNMODIFIED_SINCE")
         if if_unmodified && last_modified > if_unmodified
-          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => last_modified)
+          throw :cache_hit, Rack::Response.new([], 304, 'Last-Modified' => last_modified_httpdate)
         end
 
-        build_cache_headers({ 'Last-Modified' => last_modified })
+        build_cache_headers({ 'Last-Modified' => last_modified_httpdate })
+      end
+
+      def request_date_header(key)
+        if raw_header = @endpoint.env[key]
+          Time.rfc2822(raw_header) rescue nil
+        end
       end
 
       def throw_cache_hit(cache_key, &block)
@@ -88,12 +95,12 @@ module Grape
 
       def etag
         return unless etag?
+        return @_etag if defined?(@_etag)
 
-        @etag ||= begin
-          value = @endpoint.instance_eval(&@raw_options[:etag_check_block]).to_s
-          value = MurmurHash3::V128.str_hexdigest(value) if @raw_options[:hash_etag]
-          "#{weak_etag? ? Grape::Cache::WEAK_ETAG_INDICATOR : ''}\"#{value}\""
-        end
+        value = @endpoint.instance_eval(&@raw_options[:etag_check_block]).to_s
+        value = MurmurHash3::V128.str_hexdigest(value) if @raw_options[:hash_etag]
+
+        @_etag = "#{weak_etag? ? Grape::Cache::WEAK_ETAG_INDICATOR : ''}\"#{value}\""
       end
 
       def etag?
@@ -105,13 +112,13 @@ module Grape
       end
 
       def last_modified
-        return @last_modified if defined?(:@last_modified)
+        return @_last_modified if defined?(@_last_modified)
 
-        @last_modified ||= @endpoint.instance_eval(&@raw_options[:last_modified_block])
+        @_last_modified = @endpoint.instance_eval(&@raw_options[:last_modified_block])
       end
 
       def max_age
-        @max_age ||= resolve_value(:max_age_value)
+        @_max_age ||= resolve_value(:max_age_value)
       end
 
       def max_age?
@@ -119,7 +126,7 @@ module Grape
       end
 
       def expires_in
-        @expires_in ||= resolve_value(:expires_in_value)
+        @_expires_in ||= resolve_value(:expires_in_value)
       end
 
       def expires?
@@ -127,7 +134,7 @@ module Grape
       end
 
       def vary
-        @vary ||= resolve_value(:vary_by_value)
+        @_vary ||= resolve_value(:vary_by_value)
       end
 
       def vary?
