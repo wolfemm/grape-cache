@@ -114,7 +114,7 @@ module Grape
       def last_modified
         return @_last_modified if defined?(@_last_modified)
 
-        @_last_modified = @endpoint.instance_eval(&@raw_options[:last_modified_block])
+        @_last_modified = resolve_value(:last_modified_block)
       end
 
       def max_age
