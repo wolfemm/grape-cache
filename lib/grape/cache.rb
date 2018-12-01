@@ -10,6 +10,8 @@ require "grape/cache/constants"
 
 module Grape
   class API
-    include Grape::Cache::DSL
+    class Instance
+      include Grape::Cache::DSL
+    end
   end
 end
