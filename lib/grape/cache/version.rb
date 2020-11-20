@@ -2,6 +2,6 @@
 
 module Grape
   module Cache
-    VERSION = "0.0.16"
+    VERSION = "0.0.17"
   end
 end
